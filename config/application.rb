@@ -15,6 +15,8 @@ module DocInteligenceApi
       g.orm :active_record, primary_key_type: :uuid
     end
 
+    config.active_job.queue_adapter = :sidekiq
+
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
