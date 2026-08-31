@@ -44,7 +44,7 @@ gem "sidekiq"
 gem "redis", ">= 4.0"
 
 # Paginação e datatables
-gem "huginn_datatable"
+gem "huginn_datatable", require: "huginn"
 
 # Cliente HTTP para adapters de IA e Webhooks
 gem "faraday"
