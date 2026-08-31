@@ -30,63 +30,91 @@ RSpec.describe "ConsultaPrecos Ports & Adapters", type: :service do
   describe ConsultaPrecos::Adapters::GrokPricingAdapter do
     subject(:adapter) { described_class.new }
 
-    it "fetches prices dynamically from xAI API endpoint" do
-      stub_request(:get, "https://api.x.ai/v1/models/grok-2-vision-1212")
-        .with(headers: { "Authorization" => "Bearer xai_key" })
-        .to_return(
-          status: 200,
-          body: { prompt_text_token_price: 12500, completion_text_token_price: 25000 }.to_json,
-          headers: { "Content-Type" => "application/json" }
-        )
+    context "with WebMock stubbing (fallback determinístico)" do
+      it "fetches prices dynamically from xAI API endpoint" do
+        stub_request(:get, "https://api.x.ai/v1/models/grok-2-vision-1212")
+          .with(headers: { "Authorization" => "Bearer xai_key" })
+          .to_return(
+            status: 200,
+            body: { prompt_text_token_price: 12500, completion_text_token_price: 25000 }.to_json,
+            headers: { "Content-Type" => "application/json" }
+          )
 
-      result = adapter.fetch_price("grok-2-vision-1212", "xai_key")
+        result = adapter.fetch_price("grok-2-vision-1212", "xai_key")
 
-      expect(result.prompt_per_token).to eq(0.00000125)
-      expect(result.completion_per_token).to eq(0.0000025)
-      expect(result.calculate_cost(1000, 500)).to eq(0.0025)
-    end
+        expect(result.prompt_per_token).to eq(0.00000125)
+        expect(result.completion_per_token).to eq(0.0000025)
+        expect(result.calculate_cost(1000, 500)).to eq(0.0025)
+      end
 
-    it "returns 0.0 when model is not found" do
-      stub_request(:get, "https://api.x.ai/v1/models/unknown")
-        .to_return(status: 404, body: "Not found")
+      it "returns 0.0 when model is not found or API denies permission" do
+        stub_request(:get, "https://api.x.ai/v1/models/unknown")
+          .to_return(status: 404, body: "Not found")
 
-      result = adapter.fetch_price("unknown", "xai_key")
-      expect(result.calculate_cost(1000, 500)).to eq(0.0)
+        result = adapter.fetch_price("unknown", "xai_key")
+        expect(result.calculate_cost(1000, 500)).to eq(0.0)
+      end
     end
   end
 
   describe ConsultaPrecos::Adapters::OpenrouterPricingAdapter do
     subject(:adapter) { described_class.new }
 
-    it "fetches prices dynamically from OpenRouter catalog" do
-      openrouter_catalog = {
-        data: [
-          {
-            id: "google/gemini-1.5-flash",
-            pricing: {
-              prompt: "0.000000075",
-              completion: "0.0000003"
-            }
-          }
-        ]
-      }
+    context "with live OpenRouter public API (requisição real aberta)" do
+      before do
+        WebMock.allow_net_connect!
+      end
 
-      stub_request(:get, "https://openrouter.ai/api/v1/models")
-        .to_return(status: 200, body: openrouter_catalog.to_json, headers: { "Content-Type" => "application/json" })
+      after do
+        WebMock.disable_net_connect!(allow_localhost: true)
+      end
 
-      result = adapter.fetch_price("google/gemini-1.5-flash")
+      it "fetches live token prices for OpenAI and Gemini models without requiring an API key" do
+        result_openai = adapter.fetch_price("gpt-4o-mini")
+        expect(result_openai.prompt_per_token).to be > 0.0
+        expect(result_openai.completion_per_token).to be > 0.0
 
-      expect(result.prompt_per_token).to eq(0.000000075)
-      expect(result.completion_per_token).to eq(0.0000003)
-      expect(result.calculate_cost(1_000_000, 1_000_000)).to eq(0.375)
+        result_gemini = adapter.fetch_price("gemini-2.5-flash")
+        expect(result_gemini.prompt_per_token).to be > 0.0
+        expect(result_gemini.completion_per_token).to be > 0.0
+      end
     end
 
-    it "returns 0.0 when model is not found on OpenRouter" do
-      stub_request(:get, "https://openrouter.ai/api/v1/models")
-        .to_return(status: 200, body: { data: [] }.to_json, headers: { "Content-Type" => "application/json" })
+    context "with WebMock stubbing" do
+      before do
+        WebMock.disable_net_connect!(allow_localhost: true)
+      end
 
-      result = adapter.fetch_price("unlisted-model")
-      expect(result.calculate_cost(1_000_000, 1_000_000)).to eq(0.0)
+      it "fetches prices from catalog and calculates cost" do
+        openrouter_catalog = {
+          data: [
+            {
+              id: "google/gemini-2.5-flash",
+              pricing: {
+                prompt: "0.000000075",
+                completion: "0.0000003"
+              }
+            }
+          ]
+        }
+
+        stub_request(:get, "https://openrouter.ai/api/v1/models")
+          .to_return(status: 200, body: openrouter_catalog.to_json, headers: { "Content-Type" => "application/json" })
+
+        result = adapter.fetch_price("google/gemini-2.5-flash")
+
+        expect(result.prompt_per_token).to eq(0.000000075)
+        expect(result.completion_per_token).to eq(0.0000003)
+        expect(result.calculate_cost(1_000_000, 1_000_000)).to eq(0.375)
+      end
+
+      it "returns 0.0 when model is not found on OpenRouter" do
+        stub_request(:get, "https://openrouter.ai/api/v1/models")
+          .to_return(status: 200, body: { data: [] }.to_json, headers: { "Content-Type" => "application/json" })
+
+        result = adapter.fetch_price("unlisted-model")
+        expect(result.calculate_cost(1_000_000, 1_000_000)).to eq(0.0)
+      end
     end
   end
 end

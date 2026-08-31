@@ -13,12 +13,11 @@ module ConsultaPrecos
       end
 
       # Consulta dinamicamente a taxa de preços na API de catálogo do OpenRouter
-      # Utilizado para OpenRouter, OpenAI e Gemini
-      # @param model_name [String] Ex: "gpt-4o-mini", "gemini-1.5-flash", "meta-llama/llama-3.2-11b-vision-instruct"
+      # @param model_name [String] Ex: "gpt-4o-mini", "gemini-2.5-flash", "meta-llama/llama-3.2-11b-vision-instruct"
       # @param credential [String, nil]
       # @return [PriceResult]
       def fetch_price(model_name, credential = nil)
-        m_name = model_name.to_s
+        m_name = model_name.to_s.strip
         return build_zero_result(m_name) if m_name.blank?
 
         models_catalog = Rails.cache.fetch("openrouter_models_catalog", expires_in: 6.hours) do
@@ -39,15 +38,7 @@ module ConsultaPrecos
           []
         end
 
-        target_model = models_catalog.find do |item|
-          item_id = item["id"].to_s.downcase
-          query = m_name.downcase
-
-          item_id == query ||
-            item_id == "openai/#{query}" ||
-            item_id == "google/#{query}" ||
-            item_id.end_with?("/#{query}")
-        end
+        target_model = find_matching_model(models_catalog, m_name)
 
         if target_model && target_model["pricing"]
           PriceResult.new(
@@ -61,6 +52,27 @@ module ConsultaPrecos
       end
 
       private
+
+      def find_matching_model(catalog, model_query)
+        query = model_query.downcase
+        clean_q = query.sub(/\A(openai|google|meta-llama)\//, "")
+
+        # 1. Correspondência exata ou com prefixos de provedor
+        direct_match = catalog.find do |item|
+          id = item["id"].to_s.downcase
+          id == query || id == "openai/#{clean_q}" || id == "google/#{clean_q}" || id.end_with?("/#{clean_q}")
+        end
+        return direct_match if direct_match
+
+        # 2. Correspondência por família (ex: gemini flash / pro)
+        if clean_q.include?("gemini")
+          flash_or_pro = clean_q.include?("pro") ? "pro" : "flash"
+          catalog.find do |item|
+            id = item["id"].to_s.downcase
+            id.start_with?("google/gemini") && id.include?(flash_or_pro) && !id.include?("image") && !id.include?("preview")
+          end
+        end
+      end
 
       def build_zero_result(model_name)
         PriceResult.new(
