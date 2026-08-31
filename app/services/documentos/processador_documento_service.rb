@@ -51,14 +51,21 @@ module Documentos
                       :necessita_revisao
                     end
 
-      # 7. Persistência dos Dados Validados no Documento
+      # 7. Persistência dos Dados Validados no Documento e Renomeação do Arquivo Físico no Blob
+      novo_nome = resultado_extracao.suggested_filename.presence || @documento.nome_arquivo
+
       @documento.update!(
         tipo: tipo_detectado,
         status: novo_status,
         score_confianca: resultado_extracao.confidence_score,
-        nome_arquivo: resultado_extracao.suggested_filename.presence || @documento.nome_arquivo,
+        nome_arquivo: novo_nome,
         dados_extraidos: schema.para_h
       )
+
+      # Renomeia o blob do ActiveStorage para que futuros downloads usem o nome padronizado
+      if @documento.arquivo.attached? && resultado_extracao.suggested_filename.present?
+        @documento.arquivo.blob.update(filename: resultado_extracao.suggested_filename)
+      end
 
       # 8. Registro de Auditoria em historicos_extracao
       registrar_historico!(resultado_extracao)

@@ -81,6 +81,7 @@ module Api
         # Atualiza com lock_version garantindo controle de concorrência entre atendentes
         @documento.lock_version = params[:lock_version] if params[:lock_version].present?
         @documento.tipo = params[:tipo] if params[:tipo].present?
+        @documento.nome_arquivo = params[:nome_arquivo] if params[:nome_arquivo].present?
         @documento.cliente_id = params[:cliente_id] if params.key?(:cliente_id)
         @documento.dados_extraidos = params[:dados_extraidos] if params[:dados_extraidos].present?
         @documento.status = :processado
@@ -88,6 +89,11 @@ module Api
         @documento.revisado_em = Time.current
 
         @documento.save!
+
+        # Sincroniza o filename do blob para que o download via ActiveStorage use o nome atualizado
+        if @documento.arquivo.attached? && @documento.nome_arquivo.present?
+          @documento.arquivo.blob.update(filename: @documento.nome_arquivo)
+        end
 
         render json: {
           mensagem: "Documento conferido e aprovado com sucesso",
