@@ -16,7 +16,8 @@ docs/ai_log/
     ├── 03_ports_and_adapters_extracao_ia.md
     ├── 04_esquemas_poro_e_precificacao_dinamica_hexagonal.md
     ├── 05_data_migrations_com_data_migrate.md
-    └── 06_ingestao_de_documentos_magic_bytes_e_webhooks.md
+    ├── 06_ingestao_de_documentos_magic_bytes_e_webhooks.md
+    └── 07_controllers_rest_autenticacao_jwt_e_huginn_datatables.md
 ```
 
 ---
