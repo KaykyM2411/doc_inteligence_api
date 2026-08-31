@@ -42,7 +42,8 @@ module Api
         end
 
         def smtp_params
-          params.require(:smtp).permit(:nome, :tipo_provedor, :credencial_criptografada, :endereco_email, :ativo)
+          source = params[:smtp] || params[:configuracao_smtp] || params
+          source.permit(:nome, :tipo_provedor, :credencial_criptografada, :endereco_email, :ativo)
         end
       end
     end

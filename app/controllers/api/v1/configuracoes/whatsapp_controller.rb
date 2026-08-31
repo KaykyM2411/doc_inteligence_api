@@ -42,7 +42,8 @@ module Api
         end
 
         def whatsapp_params
-          params.require(:whatsapp).permit(:nome, :tipo_provedor, :credencial_criptografada, :numero_telefone, :ativo)
+          source = params[:whatsapp] || params[:configuracao_whatsapp] || params
+          source.permit(:nome, :tipo_provedor, :credencial_criptografada, :numero_telefone, :ativo)
         end
       end
     end
