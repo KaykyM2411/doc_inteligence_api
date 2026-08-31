@@ -29,6 +29,7 @@ module Documentos
       unless resultado_extracao.success?
         registrar_historico!(resultado_extracao)
         @documento.update!(status: :falhou)
+        Notificacoes::EmissorNotificacaoService.notificar_documento_integracao!(@documento)
         return @documento
       end
 
@@ -61,6 +62,9 @@ module Documentos
 
       # 8. Registro de Auditoria em historicos_extracao
       registrar_historico!(resultado_extracao)
+
+      # 9. Notificação em tempo real via ActionCable para documentos de integrações (WhatsApp / E-mail)
+      Notificacoes::EmissorNotificacaoService.notificar_documento_integracao!(@documento)
 
       @documento
     end

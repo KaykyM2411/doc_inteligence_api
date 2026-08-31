@@ -3,6 +3,13 @@
 Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Documentação Swagger UI
+  get "api-docs", to: "api_docs#index"
+  get "swagger.json", to: "api_docs#swagger_json"
+
+  # Servidor WebSocket do ActionCable
+  mount ActionCable.server => "/cable"
+
   devise_for :usuarios, skip: :all
 
   namespace :api do
@@ -41,6 +48,17 @@ Rails.application.routes.draw do
         member do
           patch :revisar
           get :download
+        end
+      end
+
+      # Notificações do Sistema
+      resources :notificacoes, only: [ :index, :show ] do
+        member do
+          patch :lida
+        end
+        collection do
+          post :marcar_todas_lidas
+          get :nao_lidas_count
         end
       end
 
