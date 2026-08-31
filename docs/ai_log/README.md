@@ -14,7 +14,8 @@ docs/ai_log/
     ├── 01_setup_inicial_e_instalacao_de_gems.md
     ├── 02_modelagem_de_dados_migrations_e_schema.md
     ├── 03_ports_and_adapters_extracao_ia.md
-    └── 04_esquemas_poro_e_precificacao_dinamica_hexagonal.md
+    ├── 04_esquemas_poro_e_precificacao_dinamica_hexagonal.md
+    └── 05_data_migrations_com_data_migrate.md
 ```
 
 ---
