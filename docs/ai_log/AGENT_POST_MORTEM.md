@@ -15,6 +15,7 @@ Este documento registra os pontos em que o agente de Inteligência Artificial co
 | **05** | Fluxo de Extração / Pipeline | Schemas PORO criados isoladamente sem serem orquestrados no fluxo de processamento de documentos e associação a clientes | Apontamento do engenheiro: *"voce fez os esquemas, mas eles nao sao chamados em lugar nenhum"* | Criação de `Documentos::ProcessadorDocumentoService` e `ProcessarDocumentoJob` integrando `Adapter IA -> FactoryEsquemas -> Associação de Cliente -> Auditoria` |
 | **06** | Arquitetura Hexagonal / Preços | Chamada de cálculo de preços acoplada dentro do adaptador de extração da Grok e service sem Ports & Adapters | Apontamento do engenheiro solicitando Ports & Adapters também no domínio de preços | Criação do módulo `ConsultaPrecos` com `Port`, `Factory`, `PriceResult`, `GrokPricingAdapter`, `OpenrouterPricingAdapter` e `MockPricingAdapter` |
 | **07** | Sanitização / EsquemaBase | Lógica de sanitização de números excessivamente complexa e ausência de regex padrão para telefones | Apontamento do engenheiro recomendando regex tradicional `/^(?:55)?(?:([1-9]{2}))?(\d{4,5})(\d{4})$/` | Refatoração em `EsquemaBase` simplificando parsing monetário e adicionando `sanitizar_telefone` com regex padrão |
+| **08** | Ingestão / Webhooks Terceiros | Modelagem incorreta de payloads de webhook (SendGrid multipart, Postmark JSON, Evolution API v2 e falta de fluxo em 2 passos na Graph API da Meta) | Apontamento detalhado do engenheiro com especificações oficiais de payload e documentação da Graph API | Refatoração de `SendgridAdapter` (multipart/form), `PostmarkAdapter` (JSON Base64), `EvolutionApiAdapter` (v2 `messages.upsert`) e `MetaCloudAdapter` com download em 2 etapas |
 
 ---
 
@@ -57,3 +58,12 @@ Este documento registra os pontos em que o agente de Inteligência Artificial co
 - **Contexto:** Tratamento de entradas brutas de dados cadastrais.
 - **Desvio do Agente:** Criação de lógica complexa desnecessária no parsing numérico em vez de utilizar regex simples e expressivo.
 - **Ação Adotada:** Refatoração em `EsquemaBase` com regex tradicional para telefones e sanitização direta para números.
+
+### Caso 08: Contratos Oficiais de Webhooks de Terceiros (SendGrid, Postmark, Evolution API e Meta Cloud)
+- **Contexto:** Ingestão de arquivos de e-mail e WhatsApp através de webhooks de provedores externos.
+- **Desvio do Agente:**
+  1. *SendGrid:* Não realizou o parse completo dos campos `attachment-info` (JSON) e do formulário `multipart/form-data` (`attachment1`, `attachment2`).
+  2. *Postmark:* Não tratou campos aninhados `FromFull`/`ToFull` e `Headers` estruturados.
+  3. *Evolution API:* Incompatibilidade com o JSON oficial da v2 (`messages.upsert`, `data.key.id`, `data.message.documentMessage.base64`).
+  4. *Meta Cloud WhatsApp:* Falta do fluxo obrigatório em duas etapas para obter arquivos da Graph API (Passo 1: consulta `GET /v20.0/{MEDIA_ID}` para obter a URL temporária; Passo 2: download do binário na CDN da Meta exigindo `User-Agent: curl/7.64.1`).
+- **Ação Adotada:** Refatoração completa dos adaptadores em `app/services/ingestao_email/` e `app/services/integracao_whatsapp/` para conformidade estrita com os contratos oficiais e implementação do método `download_media_bytes` no `MetaCloudAdapter`.
