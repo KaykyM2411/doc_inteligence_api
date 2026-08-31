@@ -1,0 +1,561 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DOC Intelligence API",
+    "description": "API REST e WebSockets do sistema DOC Intelligence para ingestão, extração multimodal por Inteligência Artificial, validação de esquemas documentais com POROs, conferência humana sob concorrência otimista e auditoria de custos.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Lamarck — Sociedade de Advogados",
+      "email": "contato@lamarck.adv.br"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3002",
+      "description": "Servidor de Desenvolvimento Local"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Insira o token JWT retornado no login. Formato: Bearer <token>"
+      },
+      "WhatsappApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "apikey",
+        "description": "Chave de autenticação para webhooks da Evolution API / WhatsApp"
+      },
+      "PostmarkToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Postmark-Server-Token",
+        "description": "Token de autenticação do Postmark Inbound Webhook"
+      }
+    },
+    "schemas": {
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "nome": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["usuario"],
+        "properties": {
+          "usuario": {
+            "type": "object",
+            "required": ["email", "password"],
+            "properties": {
+              "email": { "type": "string", "example": "admin@lamarck.adv.br" },
+              "password": { "type": "string", "example": "Admin@123456" }
+            }
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "mensagem": { "type": "string", "example": "Login realizado com sucesso" },
+          "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiJ9..." },
+          "usuario": { "$ref": "#/components/schemas/Usuario" }
+        }
+      },
+      "Endereco": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "logradouro": { "type": "string", "example": "Av. Prudente de Morais" },
+          "numero": { "type": "string", "example": "1500" },
+          "complemento": { "type": "string", "nullable": true },
+          "bairro": { "type": "string", "example": "Tirol" },
+          "cep": { "type": "string", "example": "59020-500" },
+          "cidade_id": { "type": "integer", "example": 1 }
+        }
+      },
+      "Cliente": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "nome": { "type": "string", "example": "Dra. Beatriz Albuquerque" },
+          "cpf": { "type": "string", "example": "111.444.777-99" },
+          "email": { "type": "string", "example": "beatriz@exemplo.com" },
+          "telefone": { "type": "string", "example": "(84) 99876-5432" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "enderecos": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Endereco" }
+          }
+        }
+      },
+      "Documento": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "cliente_id": { "type": "string", "format": "uuid", "nullable": true },
+          "tipo": { "type": "string", "enum": ["rg", "cnh", "comprovante_residencia", "contracheque", "desconhecido"], "example": "rg" },
+          "origem": { "type": "string", "enum": ["manual", "whatsapp", "email"], "example": "whatsapp" },
+          "referencia_origem": { "type": "string", "nullable": true, "example": "wamid.HBgL..." },
+          "status": { "type": "string", "enum": ["pendente", "processando", "processado", "necessita_revisao", "falhou"], "example": "processado" },
+          "sha256_arquivo": { "type": "string", "example": "a4d5cd3f0f67b62557a84681..." },
+          "nome_arquivo": { "type": "string", "example": "rg_beatriz.pdf" },
+          "dados_extraidos": { "type": "object" },
+          "versao_schema": { "type": "integer", "example": 1 },
+          "score_confianca": { "type": "number", "format": "float", "example": 0.95 },
+          "lock_version": { "type": "integer", "example": 1 },
+          "revisado_por_id": { "type": "string", "format": "uuid", "nullable": true },
+          "revisado_em": { "type": "string", "format": "date-time", "nullable": true },
+          "arquivo_url": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RevisaoDocumentoRequest": {
+        "type": "object",
+        "required": ["lock_version", "tipo", "dados_extraidos"],
+        "properties": {
+          "lock_version": { "type": "integer", "description": "Versão de concorrência atual do registro para evitar sobrescrita simultânea", "example": 1 },
+          "tipo": { "type": "string", "example": "cnh" },
+          "cliente_id": { "type": "string", "format": "uuid", "nullable": true },
+          "dados_extraidos": { "type": "object", "example": { "nome": "Beatriz Albuquerque", "cpf": "111.444.777-99", "numero_cnh": "12345678900" } }
+        }
+      },
+      "Notificacao": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "titulo": { "type": "string", "example": "Novo documento recebido via WhatsApp" },
+          "conteudo": { "type": "string", "example": "O documento 'cnh_cliente.pdf' foi extraído com sucesso (Confiança: 95%)." },
+          "lida_em": { "type": "string", "format": "date-time", "nullable": true },
+          "metadados": {
+            "type": "object",
+            "properties": {
+              "documento_id": { "type": "string", "format": "uuid" },
+              "nome_arquivo": { "type": "string" },
+              "tipo": { "type": "string" },
+              "origem": { "type": "string" },
+              "status": { "type": "string" },
+              "score_confianca": { "type": "number" },
+              "cliente_id": { "type": "string", "format": "uuid", "nullable": true },
+              "cliente_nome": { "type": "string", "nullable": true }
+            }
+          },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DatatableMeta": {
+        "type": "object",
+        "properties": {
+          "total_count": { "type": "integer", "example": 45 },
+          "data": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "AuditoriaCustosResumo": {
+        "type": "object",
+        "properties": {
+          "total_custo_usd": { "type": "number", "example": 0.04523 },
+          "total_tokens_entrada": { "type": "integer", "example": 45200 },
+          "total_tokens_saida": { "type": "integer", "example": 4320 },
+          "total_tokens": { "type": "integer", "example": 49520 },
+          "total_processamentos": { "type": "integer", "example": 22 },
+          "tempo_medio_resposta_ms": { "type": "number", "example": 3840.5 },
+          "gastos_por_provedor": { "type": "object", "example": { "openrouter": 0.035, "grok": 0.01023 } },
+          "gastos_por_modelo": { "type": "object", "example": { "google/gemini-2.5-flash-lite": 0.035 } }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Autenticar usuário e obter token JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Autenticado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "401": { "description": "Credenciais inválidas" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": ["Autenticação"],
+        "summary": "Obter perfil do usuário autenticado",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Perfil do usuário", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Usuario" } } } },
+          "401": { "description": "Não autorizado" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "delete": {
+        "tags": ["Autenticação"],
+        "summary": "Revogar token JWT e encerrar sessão",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Logout realizado com sucesso" }
+        }
+      }
+    },
+    "/api/v1/webhooks/whatsapp": {
+      "get": {
+        "tags": ["Webhooks Públicos"],
+        "summary": "Handshake de verificação do Webhook da Meta Cloud Graph API",
+        "parameters": [
+          { "name": "hub.mode", "in": "query", "required": true, "schema": { "type": "string", "example": "subscribe" } },
+          { "name": "hub.verify_token", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "hub.challenge", "in": "query", "required": true, "schema": { "type": "string", "example": "1158201444" } }
+        ],
+        "responses": {
+          "200": { "description": "Desafio resolvido (retorna hub.challenge em plain text)" },
+          "403": { "description": "Token de verificação inválido" }
+        }
+      },
+      "post": {
+        "tags": ["Webhooks Públicos"],
+        "summary": "Receber mensagens e documentos via Webhook de WhatsApp (Evolution API ou Meta Cloud)",
+        "security": [{ "WhatsappApiKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Webhook recebido e enfileirado com sucesso" },
+          "401": { "description": "Credencial de WhatsApp inválida" }
+        }
+      }
+    },
+    "/api/v1/webhooks/email": {
+      "post": {
+        "tags": ["Webhooks Públicos"],
+        "summary": "Receber e-mails e anexos via Webhook (SendGrid Inbound Parse ou Postmark JSON)",
+        "security": [{ "PostmarkToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "type": "object" } },
+            "multipart/form-data": { "schema": { "type": "object" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "Webhook de e-mail recebido e anexos enfileirados com sucesso" },
+          "401": { "description": "Credencial de e-mail inválida" }
+        }
+      }
+    },
+    "/api/v1/clientes": {
+      "get": {
+        "tags": ["Clientes"],
+        "summary": "Listagem paginada de clientes via Huginn Datatable com filtros protegidos",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "search", "in": "query", "description": "Busca tolerante / trigram por nome, email ou cpf", "schema": { "type": "string" } },
+          { "name": "filters[nome]", "in": "query", "description": "Filtro exato por nome do cliente", "schema": { "type": "string" } },
+          { "name": "filters[cpf]", "in": "query", "description": "Filtro exato por CPF", "schema": { "type": "string" } },
+          { "name": "filters[cidade]", "in": "query", "description": "Filtro por nome da cidade", "schema": { "type": "string" } },
+          { "name": "filters[estado]", "in": "query", "description": "Filtro por sigla do estado (UF)", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Listagem paginada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Clientes"],
+        "summary": "Cadastrar novo cliente com endereço opcional",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cliente"],
+                "properties": {
+                  "cliente": {
+                    "type": "object",
+                    "required": ["nome"],
+                    "properties": {
+                      "nome": { "type": "string", "example": "Dra. Beatriz Albuquerque" },
+                      "cpf": { "type": "string", "example": "111.444.777-99" },
+                      "email": { "type": "string", "example": "beatriz@exemplo.com" },
+                      "telefone": { "type": "string", "example": "(84) 99876-5432" }
+                    }
+                  },
+                  "endereco": { "$ref": "#/components/schemas/Endereco" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Cliente criado com sucesso", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cliente" } } } },
+          "422": { "description": "Erro de validação cadastral" }
+        }
+      }
+    },
+    "/api/v1/clientes/{id}": {
+      "get": {
+        "tags": ["Clientes"],
+        "summary": "Exibir dados do cliente e endereços vinculados",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cliente" } } } },
+          "404": { "description": "Cliente não encontrado" }
+        }
+      }
+    },
+    "/api/v1/clientes/{id}/documentos": {
+      "get": {
+        "tags": ["Clientes"],
+        "summary": "Histórico de documentos pertencentes ao cliente",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Documento" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Clientes"],
+        "summary": "Upload manual de documento diretamente vinculado na ficha do cliente",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["arquivo"],
+                "properties": {
+                  "arquivo": { "type": "string", "format": "binary" },
+                  "tipo": { "type": "string", "example": "cnh" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Documento enfileirado com sucesso" },
+          "200": { "description": "Documento duplicado já existente retornado (Deduplicação SHA-256)" },
+          "422": { "description": "Arquivo inválido ou corrompido (bloqueio por Magic Bytes)" }
+        }
+      }
+    },
+    "/api/v1/documentos": {
+      "get": {
+        "tags": ["Documentos & Fila de Conferência"],
+        "summary": "Listagem global paginada de documentos com Huginn Datatable",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "filters[tipo]", "in": "query", "schema": { "type": "string" } },
+          { "name": "filters[status]", "in": "query", "schema": { "type": "string" } },
+          { "name": "filters[origem]", "in": "query", "schema": { "type": "string" } },
+          { "name": "filters[cliente_nome]", "in": "query", "schema": { "type": "string" } },
+          { "name": "filters[cliente_cpf]", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Documentos & Fila de Conferência"],
+        "summary": "Upload manual geral de arquivo",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["arquivo"],
+                "properties": {
+                  "arquivo": { "type": "string", "format": "binary" },
+                  "tipo": { "type": "string", "example": "rg" },
+                  "cliente_id": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Documento ingerido e enfileirado para processamento" }
+        }
+      }
+    },
+    "/api/v1/documentos/fila_conferencia": {
+      "get": {
+        "tags": ["Documentos & Fila de Conferência"],
+        "summary": "Fila de conferência humana (documentos em status 'necessita_revisao' ou 'falhou')",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      }
+    },
+    "/api/v1/documentos/{id}/revisar": {
+      "patch": {
+        "tags": ["Documentos & Fila de Conferência"],
+        "summary": "Revisar, ajustar dados extraídos e aprovar documento com Trava de Concorrência Otimista (lock_version)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RevisaoDocumentoRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Documento conferido e aprovado com sucesso", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Documento" } } } },
+          "409": { "description": "Conflito de concorrência: o documento foi modificado simultaneamente por outro operador (lock_version desatualizado)" }
+        }
+      }
+    },
+    "/api/v1/notificacoes": {
+      "get": {
+        "tags": ["Notificações & WebSockets"],
+        "summary": "Listar notificações do sistema geradas por integrações de WhatsApp e E-mail",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      }
+    },
+    "/api/v1/notificacoes/{id}/lida": {
+      "patch": {
+        "tags": ["Notificações & WebSockets"],
+        "summary": "Marcar notificação individual como lida",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Notificação marcada como lida" }
+        }
+      }
+    },
+    "/api/v1/notificacoes/marcar_todas_lidas": {
+      "post": {
+        "tags": ["Notificações & WebSockets"],
+        "summary": "Marcar todas as notificações não lidas como lidas",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Todas as notificações foram marcadas como lidas" }
+        }
+      }
+    },
+    "/api/v1/notificacoes/nao_lidas_count": {
+      "get": {
+        "tags": ["Notificações & WebSockets"],
+        "summary": "Contagem de notificações pendentes não lidas",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "object", "properties": { "total_nao_lidas": { "type": "integer", "example": 3 } } } } } }
+        }
+      }
+    },
+    "/api/v1/estados": {
+      "get": {
+        "tags": ["Base Geográfica"],
+        "summary": "Listar 27 estados da federação com Huginn Datatable",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      }
+    },
+    "/api/v1/cidades": {
+      "get": {
+        "tags": ["Base Geográfica"],
+        "summary": "Listar cidades com scope por_estado via Huginn Datatable",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "estado_id", "in": "query", "description": "ID do Estado para filtrar municípios", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatatableMeta" } } } }
+        }
+      }
+    },
+    "/api/v1/configuracoes/provedores_ia": {
+      "get": {
+        "tags": ["Configurações & Provedores"],
+        "summary": "Listar provedores de IA cadastrados (Grok, OpenAI, Gemini, OpenRouter, Ollama, Mock)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object" } } } } }
+        }
+      }
+    },
+    "/api/v1/configuracoes/provedores_ia/{id}/ativar": {
+      "post": {
+        "tags": ["Configurações & Provedores"],
+        "summary": "Ativar provedor de IA específico (desativa atomicamente os demais)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Provedor ativado com sucesso" }
+        }
+      }
+    },
+    "/api/v1/auditoria/custos": {
+      "get": {
+        "tags": ["Auditoria Financeira"],
+        "summary": "Dashboard analítico de consumo financeiro e tokens de IA",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "provedor", "in": "query", "schema": { "type": "string" } },
+          { "name": "modelo", "in": "query", "schema": { "type": "string" } },
+          { "name": "data_inicio", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "data_fim", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "resumo": { "$ref": "#/components/schemas/AuditoriaCustosResumo" },
+                    "historicos": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
