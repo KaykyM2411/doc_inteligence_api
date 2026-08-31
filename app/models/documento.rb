@@ -6,7 +6,7 @@ class Documento < ApplicationRecord
   belongs_to :cliente, optional: true
   belongs_to :revisado_por, class_name: "Usuario", optional: true
 
-  has_many :historicos_extracao, dependent: :destroy
+  has_many :historicos_extracao, class_name: "HistoricoExtracao", dependent: :destroy
 
   enum :status, {
     pendente: "pendente",

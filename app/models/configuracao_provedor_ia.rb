@@ -3,7 +3,7 @@
 class ConfiguracaoProvedorIa < ApplicationRecord
   self.table_name = "configuracoes_provedor_ia"
 
-  has_many :historicos_extracao, dependent: :nullify
+  has_many :historicos_extracao, class_name: "HistoricoExtracao", dependent: :nullify
 
   encrypts :credencial_criptografada
 
