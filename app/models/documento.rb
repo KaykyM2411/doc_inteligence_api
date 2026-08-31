@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Documento < ApplicationRecord
+  include Huginn::Datatable
+
   has_one_attached :arquivo
 
   belongs_to :cliente, optional: true
@@ -31,4 +33,28 @@ class Documento < ApplicationRecord
   scope :por_cliente, ->(cliente_id) { where(cliente_id: cliente_id) if cliente_id.present? }
   scope :por_tipo, ->(tipo) { where(tipo: tipo) if tipo.present? }
   scope :por_status, ->(status) { where(status: status) if status.present? }
+
+  # Mapeamento de atributos públicos no Huginn (colunas próprias diretas e associações por caminho)
+  huginn_attributes(
+    id: "id",
+    tipo: "tipo",
+    origem: "origem",
+    status: "status",
+    nome_arquivo: "nome_arquivo",
+    score_confianca: "score_confianca",
+    cliente_id: "cliente_id",
+    cliente_nome: "cliente.nome",
+    cliente_cpf: "cliente.cpf",
+    criado_em: "created_at",
+    atualizado_em: "updated_at",
+    revisado_em: "revisado_em"
+  )
+
+  def arquivo_url
+    return nil unless arquivo.attached?
+
+    Rails.application.routes.url_helpers.rails_blob_url(arquivo, only_path: true)
+  rescue StandardError
+    nil
+  end
 end
