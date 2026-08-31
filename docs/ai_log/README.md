@@ -11,11 +11,10 @@ docs/ai_log/
 ├── README.md                # Este documento explicativo
 ├── AGENT_POST_MORTEM.md     # Registro de erros, alucinações da IA e correções humanas
 └── prompts/                 # Histórico cronológico e bruto de todos os prompts utilizados
-    ├── 01_setup_inicial_e_migrations.md
-    ├── 02_modelagem_documentos_e_sha256.md
-    ├── 03_ports_and_adapters_extracao.md
-    ├── 04_job_assincrono_e_fatia_vertical.md
-    └── 05_correcao_de_bugs_e_testes.md
+    ├── 01_setup_inicial_e_instalacao_de_gems.md
+    ├── 02_modelagem_de_dados_migrations_e_schema.md
+    ├── 03_ports_and_adapters_extracao_ia.md
+    └── 04_esquemas_poro_e_precificacao_dinamica_hexagonal.md
 ```
 
 ---
