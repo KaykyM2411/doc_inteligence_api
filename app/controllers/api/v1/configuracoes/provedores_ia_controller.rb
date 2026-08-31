@@ -44,7 +44,8 @@ module Api
         end
 
         def provedor_params
-          params.require(:provedor_ia).permit(:nome_modelo, :credencial_criptografada, :ativo)
+          source = params[:provedor_ia] || params[:configuracao_provedor_ia] || params
+          source.permit(:nome_modelo, :credencial_criptografada, :ativo)
         end
       end
     end
