@@ -49,6 +49,9 @@ gem "huginn_datatable"
 # Cliente HTTP para adapters de IA e Webhooks
 gem "faraday"
 
+# Migrations de dados
+gem "data_migrate", "~> 11.3.1"
+
 # Variáveis de ambiente
 gem "dotenv-rails", groups: [ :development, :test ]
 
