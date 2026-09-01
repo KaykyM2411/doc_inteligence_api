@@ -1,24 +1,196 @@
-# README
+# DOC Intelligence API
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+> **Serviço de Inteligência Documental e Extração Estruturada**  
+> Desafio Técnico de Seleção em Tecnologia — **Trilha A (Back-end)**  
+> **Lamarck — Sociedade de Advogados** · *Núcleo de Engenharia de Software*
 
-Things you may want to cover:
+---
 
-* Ruby version
+## 1. Visão Geral do Produto
 
-* System dependencies
+O **DOC Intelligence** é um serviço desacoplado de inteligência documental projetado para automatizar a triagem, classificação, validação e extração de dados estruturados a partir de documentos jurídicos e cadastrais (RG, CNH, Comprovantes de Residência, Contracheques e Procurações) recebidos via WhatsApp, e-mail e upload manual no balcão do atendimento.
 
-* Configuration
+O sistema elimina o trabalho manual de conferência repetitiva, aplicando validações automáticas com inteligência artificial multimodal, detecção e descarte antecipado de duplicatas (early idempotency), concorrência otimista na fila de revisão humana e auditoria drill-down de consumo financeiro de tokens por modelo e provedor.
 
-* Database creation
+---
 
-* Database initialization
+## 2. Principais Funcionalidades Implementadas
 
-* How to run the test suite
+### 2.1 Multi-Provedores de IA Multimodal (Testados com APIs Reais)
+- **Desacoplamento de Provedores:** Suporte integrado a **Grok (xAI Vision)**, **OpenAI (GPT-4o)**, **Google Gemini Multimodal**, **OpenRouter**, **Ollama** e **Mock**.
+- **Chaves Reais Testadas:** A integração foi testada e homologada consumindo a API oficial do Gemini e do OpenRouter (`gemini-3.5-flash-lite'), validando latência, qualidade da extração JSON e respostas multimodais de alta resolução.
+- **Consulta Dinâmica de Preços (Domain Pricing):** O custo financeiro de cada requisição em USD não é hardcoded; o sistema consulta dinamicamente a tabela de preços via endpoints oficiais dos provedores (ex: xAI e OpenRouter) e audita o custo exato por documento.
 
-* Services (job queues, cache servers, search engines, etc.)
+### 2.2 Ingestão Multicanal & Webhooks (WhatsApp & E-mail)
+- **WhatsApp (Múltiplas Instâncias):** Suporte nativo a **Evolution API v2** (`messages.upsert`), **Z-API** e **Meta Cloud Graph API** (com fluxo seguro de download de mídia em 2 etapas e challenge verification `hub.challenge`).
+- **E-mail Inbound:** Suporte a **Postmark Inbound** (JSON Base64), **SendGrid Inbound Parse** (multipart/form) e **IMAP**.
+- **Testes com Payloads Oficiais:** As rotas de webhook foram testadas simulando eventos reais e payloads fiéis às especificações oficiais de cada plataforma.
+- **Early Idempotency & Magic Bytes:** Descarte imediato de retries de webhooks por `(origem, referencia_origem)` antes de downloads pesados, e sanitização rigorosa de cabeçalhos binários para rejeição de arquivos corrompidos ou maliciosos.
 
-* Deployment instructions
+### 2.3 Gestão de Clientes e Associação Automática de Documentos
+- **CRUD Completo de Clientes & Endereços:** Cadastro de clientes com validação de CPF e estrutura geográfica normalizada (Estados e Cidades).
+- **Associação Automática Inteligente:** Documentos recebidos sem vínculo prévio são analisados pela IA; o sistema tenta associar automaticamente o documento a um cliente existente via CPF extraído; caso não localize, realiza fallback buscando por Nome normalizado.
+- **Upload Vinculado:** Na ficha do cliente, é possível importar documentos diretamente vinculados.
 
-* ...
+### 2.4 Fila de Conferência Humana & Concorrência Otimista
+- **Score de Confiança:** Extrações com score $\ge 0.85$ e schemas PORO válidos são marcadas automaticamente como `processado`. Casos ambíguos ou com baixa confiança são encaminhados para `necessita_revisao`.
+- **Prevenção de Sobrescrita (Fato g do Desafio):** Uso de `lock_version` do PostgreSQL para controle de concorrência otimista. Quando dois atendentes abrem o mesmo documento simultaneamente, o segundo a salvar recebe `HTTP 409 Conflict`, impedindo perda de dados de conferência.
+- **Rastreabilidade LGPD:** Registro explícito do usuário responsável e data/hora da intervenção humana (`revisado_por_id` e `revisado_em`).
+
+### 2.5 Notificações em Tempo Real (WebSockets / ActionCable)
+- **Broadcast em Tempo Real:** Transmissão instantânea via WebSocket (`/cable` no canal `documentos_integracoes`) para todos os atendentes conectados quando um documento for recebido e processado via WhatsApp ou E-mail.
+- **Autenticação Segura de WebSockets:** Handshake autenticado via JWT (`?token=...` ou header `Authorization`), rejeitando conexões anônimas.
+
+### 2.6 Painel de Auditoria de Custos de IA
+- **Dashboard Drill-Down:** Endpoint analítico que agrega o total gasto em USD, tokens de entrada/saída consumidos, tempo médio de resposta em milissegundos e distribuição de gastos por modelo e por provedor.
+
+---
+
+## 3. Arquitetura e Engenharia de Software
+
+### 3.1 Arquitetura Hexagonal (Ports & Adapters)
+A aplicação adota **Arquitetura Hexagonal estrita** em `app/services/`, isolando completamente a lógica de domínio de qualquer dependência de fornecedores externos:
+
+```text
+app/services/
+├── extracao_ia/              # Domínio de Extração Multimodal
+│   ├── port.rb               # Contrato abstrato da interface
+│   ├── factory.rb            # Fábrica que instancia o adaptador ativo no banco
+│   ├── default_prompt.rb     # Prompt mestre versionado (v1.0)
+│   ├── extraction_result.rb  # DTO normalizado de retorno
+│   └── adapters/             # Implementações concretas (Grok, OpenAI, Gemini, etc.)
+│
+├── consulta_precos/          # Domínio de Precificação Dinâmica de Tokens
+│   ├── port.rb, factory.rb, price_result.rb
+│   └── adapters/             # GrokPricingAdapter, OpenrouterPricingAdapter, Mock
+│
+├── integracao_whatsapp/      # Domínio de Ingestão via WhatsApp
+│   ├── port.rb, factory.rb, whatsapp_message.rb, whatsapp_media.rb
+│   └── adapters/             # EvolutionApiAdapter, MetaCloudAdapter, Mock
+│
+├── ingestao_email/           # Domínio de Ingestão via E-mail
+│   ├── port.rb, factory.rb, email_message.rb, email_attachment.rb
+│   └── adapters/             # PostmarkAdapter, SendgridAdapter, Mock
+│
+└── documentos/               # Domínio Core de Orquestração
+    ├── ingestao_service.rb
+    ├── processador_documento_service.rb
+    └── validador_arquivo.rb
+```
+
+### 3.2 Validações Dinâmicas com Schemas PORO
+Os dados extraídos em JSONB são validados e sanitizados por classes PORO (`ActiveModel::Model`) em `app/models/esquemas_documento/`:
+- `EsquemaRgV1`, `EsquemaCnhV1`, `EsquemaComprovanteResidenciaV1`, `EsquemaContrachequeV1`.
+- `EsquemaBase`: Utilitários reutilizáveis de sanitização de CPF, telefones com regex canônica e parsing financeiro.
+- `FactoryEsquemas`: Resolução dinâmica por tipo de documento e versão do schema.
+
+### 3.3 Destaque da Stack: Gem `huginn_datatable` (Autoria Própria)
+Para resolver a paginação performática, ordenação multicamadas, mapeamento de aliases públicos e filtros dinâmicos de dados em tabelas relacionais complexas (Clientes, Documentos, Estados, Cidades e Auditoria), o projeto utiliza a gem **[`huginn_datatable`](https://rubygems.org/gems/huginn_datatable)** (`require "huginn"`), desenvolvida pelo próprio candidato e publicada no RubyGems.
+
+---
+
+## 4. Stack Tecnológica
+
+| Componente | Tecnologia | Finalidade |
+|:---|:---|:---|
+| **Linguagem & Framework** | Ruby 4.0.6 · Rails 8.1.3 (API-only) | Core da API RESTful de alta produtividade |
+| **Banco de Dados** | PostgreSQL 16 | UUIDs nativos (`pgcrypto`), JSONB e índices parciais únicos |
+| **Fila & Cache** | Redis 7 + Sidekiq | Processamento assíncrono resiliente de documentos pesados |
+| **Autenticação** | Devise + Devise-JWT | Autenticação stateless JWT com denylist de revogação |
+| **WebSockets** | ActionCable | Notificações em tempo real para o atendimento |
+| **Paginação & Datatables**| `huginn_datatable` (Gem Própria) | Queries otimizadas com aliases seguros e filtros dinâmicos |
+| **HTTP Client** | Faraday | Integração com APIs externas de IA e Webhooks |
+| **Migrations de Dados** | `data_migrate` | Separação entre migrations estruturais de schema e populações de dados |
+| **Testes Automatizados** | RSpec 7, WebMock, Faker | Suíte de testes unitários, de serviços e de integração |
+| **Documentação Interativa**| Swagger UI / OpenAPI 3.0 | Visualização e experimentação dos endpoints em `/api-docs` |
+
+---
+
+## 5. Como Rodar o Projeto
+
+Você pode rodar a aplicação completa de duas maneiras:
+
+### Opção A: Execução Completa via Docker Compose (Recomendada)
+Sobe o banco PostgreSQL, Redis, servidor Rails e o worker do Sidekiq em contêineres orquestrados:
+
+```bash
+# 1. Clone o repositório e acesse o diretório
+git clone <url-do-repositorio>
+cd doc_inteligence_api
+
+# 2. Crie o arquivo de ambiente a partir do exemplo
+cp .env.example .env
+
+# 3. Construa e suba todos os serviços
+docker compose up --build
+```
+
+A API estará pronta e respondendo em `http://localhost:3000`.  
+Documentação Swagger UI em: `http://localhost:3000/api-docs`.
+
+---
+
+### Opção B: Execução Local Tradicional
+
+#### Pré-requisitos:
+- Ruby 4.0.6 instalado
+- PostgreSQL 16 e Redis 7 ativos
+
+```bash
+# 1. Instalar dependências
+bundle install
+
+# 2. Configurar variáveis de ambiente
+cp .env.example .env
+
+# 3. Criar banco e executar migrations de schema e de dados
+bin/rails db:create db:migrate
+bin/rails data:migrate
+
+# 4. Iniciar o worker do Sidekiq (em um terminal separado)
+bundle exec sidekiq
+
+# 5. Iniciar o servidor Rails
+bin/rails server -p 3000
+```
+
+---
+
+## 6. Testes Automatizados
+
+Para rodar a suíte completa de testes:
+
+```bash
+bundle exec rspec
+```
+
+> **Nota sobre credenciais:** A variável `XAI_API_KEY` é **opcional**. Toda a suíte de testes do RSpec foi projetada com Dublês de Teste (Mocks, Stubs e WebMock) para garantir isolamento e velocidade, dispensando chamadas externas pagas durante a execução dos testes.
+
+### O que foi testado e por quê
+
+A suíte de testes automatizados priorizou cobrir de forma profunda e exaustiva os caminhos críticos e os pontos de maior fragilidade operacional do sistema, alinhando-se aos **fatos do ambiente** do desafio:
+
+1. **Pipeline de Ingestão e Deduplicação (Fato c):** Testes unitários e de integração comprovando que reenvios do mesmo arquivo por um cliente são interceptados por hash SHA-256 sem duplicação no banco, e que eventos repetidos de webhook são descartados de imediato por Early Idempotency.
+2. **Webhooks e Sanitização de Magic Bytes (Fato b):** Testes com payloads reais de WhatsApp e E-mail, além de rejeição de arquivos executáveis corrompidos ou maliciosos.
+3. **Concorrência Otimista na Fila de Conferência (Fato g):** Simulação de dois atendentes tentando salvar o mesmo documento simultaneamente, atestando o retorno de `HTTP 409 Conflict` via `lock_version`.
+4. **Ports & Adapters de IA e Precificação Dinâmica (Fato f):** Testes de fallback gracioso para o `MockAdapter`, isolamento de chamadas HTTP via WebMock e cálculo dinâmico de custos de tokens.
+5. **Autenticação JWT e WebSockets:** Testes de ciclo de vida de tokens (login, me, logout com revogação) e conexão autenticada ao ActionCable.
+6. **Models e Validações de Domínio:** Validações de presença, unicidade de CPF, enums de status/origem e escopos de busca.
+
+---
+
+## 7. Documentação da API e Governança de IA
+
+- **Swagger UI / OpenAPI 3.0:** Acesse `http://localhost:3000/api-docs` para explorar e testar todas as rotas da API interativamente.
+- **Especificação Canônica:** O projeto foi implementado com 100% de fidelidade ao documento [`docs/especificacao_e_arquitetura_doc_intelligence.md`](docs/especificacao_e_arquitetura_doc_intelligence.md).
+- **Registro de Uso de IA (`docs/ai_log/`):**
+  - [`AGENTS.md`](AGENTS.md): Diretrizes mandatórias de engenharia e regras de governança para agentes de IA.
+  - [`docs/ai_log/prompts/`](docs/ai_log/prompts/): Histórico bruto, integral e sequencial dos 8 prompts utilizados.
+  - [`docs/ai_log/AGENT_POST_MORTEM.md`](docs/ai_log/AGENT_POST_MORTEM.md): Registro transparente de 12 intervenções do desenvolvedor para corrigir alucinações e desvios do agente.
+
+---
+
+## 8. Licença
+
+Desenvolvido para o Processo Seletivo de Tecnologia da **Lamarck — Sociedade de Advogados**. Uso restrito para fins de avaliação técnica.
+

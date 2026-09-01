@@ -18,7 +18,8 @@ docs/ai_log/
     ├── 05_data_migrations_com_data_migrate.md
     ├── 06_ingestao_de_documentos_magic_bytes_e_webhooks.md
     ├── 07_controllers_rest_autenticacao_jwt_e_huginn_datatables.md
-    └── 08_notificacoes_em_tempo_real_actioncable_e_swagger_ui.md
+    ├── 08_notificacoes_em_tempo_real_actioncable_e_swagger_ui.md
+    └── 09_auditoria_critica_recrutador_e_refinamento_final.md
 ```
 
 ---
