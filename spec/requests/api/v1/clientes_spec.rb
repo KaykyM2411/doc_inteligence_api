@@ -122,4 +122,49 @@ RSpec.describe "Api::V1::Clientes", type: :request do
       expect(json["documento"]["status"]).to eq("pendente")
     end
   end
+
+  describe "PATCH /api/v1/clientes/:id" do
+    it "updates client info and first address" do
+      patch "/api/v1/clientes/#{cliente1.id}",
+            params: {
+              cliente: { telefone: "(84) 98888-2222" },
+              endereco: { logradouro: "Av. Salgado Filho Atualizada", numero: "2000", cidade_id: cidade_natal.id }
+            },
+            headers: auth_headers
+
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json["telefone"]).to eq("(84) 98888-2222")
+      expect(cliente1.reload.telefone).to eq("(84) 98888-2222")
+      expect(cliente1.enderecos.first.logradouro).to eq("Av. Salgado Filho Atualizada")
+    end
+  end
+
+  describe "DELETE /api/v1/clientes/:id" do
+    it "deletes the client and destroys associated addresses" do
+      delete "/api/v1/clientes/#{cliente2.id}", headers: auth_headers
+
+      expect(response).to have_http_status(:ok)
+      expect(Cliente.find_by(id: cliente2.id)).to be_nil
+    end
+  end
+
+  describe "GET /api/v1/clientes/:id/documentos" do
+    it "returns list of documents belonging to the client" do
+      doc = Documento.create!(
+        tipo: "cnh",
+        origem: "manual",
+        sha256_arquivo: Digest::SHA256.hexdigest("doc_cliente_list_test"),
+        status: :processado,
+        cliente: cliente1
+      )
+
+      get "/api/v1/clientes/#{cliente1.id}/documentos", headers: auth_headers
+
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json).to be_an(Array)
+      expect(json.any? { |d| d["id"] == doc.id }).to be true
+    end
+  end
 end

@@ -130,4 +130,44 @@ RSpec.describe "Api::V1::Documentos", type: :request do
       expect(json["error"]).to include("Conflito")
     end
   end
+
+  describe "GET /api/v1/documentos/:id" do
+    it "returns document details with associations and extraction history" do
+      get "/api/v1/documentos/#{doc_processado.id}", headers: auth_headers
+
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json["id"]).to eq(doc_processado.id)
+      expect(json["cliente"]["id"]).to eq(cliente.id)
+      expect(json).to have_key("historicos_extracao")
+    end
+  end
+
+  describe "GET /api/v1/documentos/:id/download" do
+    it "redirects to active storage blob url when file is attached" do
+      doc_com_arquivo = Documento.create!(
+        tipo: "rg",
+        origem: "manual",
+        sha256_arquivo: Digest::SHA256.hexdigest("arquivo_download_test"),
+        status: :processado
+      )
+      doc_com_arquivo.arquivo.attach(
+        io: StringIO.new("%PDF-1.4 sample file for download test"),
+        filename: "meu_rg.pdf",
+        content_type: "application/pdf"
+      )
+
+      get "/api/v1/documentos/#{doc_com_arquivo.id}/download", headers: auth_headers
+
+      expect(response).to have_http_status(:redirect)
+    end
+
+    it "returns 404 when document has no file attached" do
+      get "/api/v1/documentos/#{doc_processado.id}/download", headers: auth_headers
+
+      expect(response).to have_http_status(:not_found)
+      json = JSON.parse(response.body)
+      expect(json["error"]).to include("não encontrado")
+    end
+  end
 end
