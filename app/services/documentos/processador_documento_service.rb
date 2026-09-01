@@ -6,7 +6,7 @@ module Documentos
 
     def initialize(documento, adapter: nil)
       @documento = documento
-      @adapter = adapter || ExtracaoIa::Factory.active_adapter
+      @adapter = adapter
     end
 
     def processar!
@@ -15,15 +15,8 @@ module Documentos
       # 1. Carrega bytes do arquivo (ActiveStorage ou url_arquivo_bruto)
       arquivo_bytes, content_type = carregar_arquivo
 
-      # 2. Executa a extração no adaptador de IA ativo
-      resultado_extracao = @adapter.extract(
-        arquivo_bytes,
-        content_type: content_type,
-        options: {
-          nome_arquivo: @documento.nome_arquivo,
-          tipo_documento: @documento.tipo
-        }
-      )
+      # 2. Executa a extração via cascata de adaptadores protegidos por Circuit Breaker
+      resultado_extracao = executar_extracao_com_fallback(arquivo_bytes, content_type)
 
       # 3. Tratamento de falha de conexão/execução na IA
       unless resultado_extracao.success?
@@ -77,6 +70,53 @@ module Documentos
     end
 
     private
+
+    def executar_extracao_com_fallback(arquivo_bytes, content_type)
+      adapters_disponiveis = @adapter ? [@adapter] : ExtracaoIa::Factory.active_adapters
+      options = { nome_arquivo: @documento.nome_arquivo, tipo_documento: @documento.tipo }
+      ultimo_resultado = nil
+
+      adapters_disponiveis.each_with_index do |adapter, idx|
+        breaker = ExtracaoIa::CircuitBreaker.new(adapter.provider_name)
+
+        begin
+          resultado = breaker.call do
+            adapter.extract(arquivo_bytes, content_type: content_type, options: options)
+          end
+
+          ultimo_resultado = resultado
+          @adapter = adapter
+
+          if resultado&.success?
+            Rails.logger.info("[ProcessadorDocumentoService] Extracao concluida com sucesso via '#{adapter.provider_name}' (Tentativa #{idx + 1}/#{adapters_disponiveis.size})")
+            return resultado
+          else
+            Rails.logger.warn("[ProcessadorDocumentoService] Provedor '#{adapter.provider_name}' falhou: #{resultado&.error_message}. Acionando fallback se disponivel...")
+          end
+        rescue ExtracaoIa::CircuitOpenError => e
+          Rails.logger.warn("[ProcessadorDocumentoService] Circuit Breaker OPEN para '#{adapter.provider_name}': #{e.message}. Tentando proximo provedor...")
+        rescue StandardError => e
+          Rails.logger.error("[ProcessadorDocumentoService] Erro no provedor '#{adapter.provider_name}': #{e.message}. Tentando proximo provedor...")
+        end
+      end
+
+      ultimo_resultado || ExtracaoIa::ExtractionResult.new(
+        success: false,
+        provider_name: @adapter&.provider_name || "nenhum",
+        model_name: @adapter&.model_name || "nenhum",
+        prompt_version: "v1.0",
+        document_type: "desconhecido",
+        confidence_score: 0.0,
+        suggested_filename: nil,
+        extracted_data: {},
+        input_tokens: 0,
+        output_tokens: 0,
+        response_time_ms: 0,
+        estimated_cost_usd: 0.0,
+        raw_response: { "error" => "Todos os provedores de IA configurados falharam ou estao indisponiveis" },
+        error_message: "Todos os provedores de IA configurados falharam ou estao indisponiveis"
+      )
+    end
 
     def carregar_arquivo
       if @documento.arquivo.attached?

@@ -8,14 +8,8 @@ class ConfiguracaoProvedorIa < ApplicationRecord
   encrypts :credencial_criptografada
 
   validates :nome_provedor, :nome_modelo, presence: true
+  validates :ordem, presence: true, uniqueness: true, numericality: { greater_than: 0 }, if: :ativo?
 
   scope :ativos, -> { where(ativo: true) }
-
-  before_save :desativar_outros_se_ativo, if: :ativo?
-
-  private
-
-  def desativar_outros_se_ativo
-    self.class.where.not(id: id).update_all(ativo: false)
-  end
+  scope :ativos_ordenados, -> { where(ativo: true).order(:ordem, :created_at) }
 end

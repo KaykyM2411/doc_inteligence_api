@@ -25,7 +25,8 @@ RSpec.describe "ExtracaoIa Ports & Adapters", type: :service do
           nome_provedor: "grok",
           nome_modelo: "grok-2-vision-1212",
           credencial_criptografada: "xai-test-key-123",
-          ativo: true
+          ativo: true,
+          ordem: 1
         )
       end
 

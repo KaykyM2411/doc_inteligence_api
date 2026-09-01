@@ -11,17 +11,26 @@ module ExtracaoIa
       "ollama" => Adapters::OllamaAdapter
     }.freeze
 
-    # Retorna a instância do adaptador configurado como ativo no banco de dados
-    # Fallback para MockAdapter quando nenhum provedor estiver ativo ou configurado
+    # Retorna a lista de adaptadores ativos ordenados por prioridade (ordem)
+    # Suporta fallback cascade entre múltiplos provedores
+    # @return [Array<Port>]
+    def self.active_adapters
+      configs = ConfiguracaoProvedorIa.ativos_ordenados
+
+      if configs.any?
+        configs.filter_map do |config|
+          adapter_class = ADAPTERS[config.nome_provedor.to_s.downcase]
+          adapter_class&.new(config)
+        end.presence || [Adapters::MockAdapter.new]
+      else
+        [Adapters::MockAdapter.new]
+      end
+    end
+
+    # Retorna a instância do adaptador prioritário (ordem 1)
     # @return [Port]
     def self.active_adapter
-      config = ConfiguracaoProvedorIa.ativos.first
-
-      if config.present? && ADAPTERS.key?(config.nome_provedor.to_s.downcase)
-        ADAPTERS[config.nome_provedor.to_s.downcase].new(config)
-      else
-        Adapters::MockAdapter.new(config)
-      end
+      active_adapters.first
     end
 
     # Instancia um adaptador específico por nome

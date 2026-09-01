@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_30_231734) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_01_072458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -66,8 +66,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_231734) do
     t.text "credencial_criptografada"
     t.string "nome_modelo", null: false
     t.string "nome_provedor", null: false
+    t.integer "ordem"
     t.datetime "updated_at", null: false
     t.index ["nome_provedor"], name: "index_configuracoes_provedor_ia_on_nome_provedor"
+    t.index ["ordem"], name: "idx_config_provedor_ia_ordem_ativo_unique", unique: true, where: "(ativo = true)"
   end
 
   create_table "configuracoes_smtp", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -88,6 +90,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_231734) do
     t.string "numero_telefone"
     t.string "tipo_provedor", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "data_migrations", primary_key: "version", id: :string, force: :cascade do |t|
   end
 
   create_table "documentos", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
