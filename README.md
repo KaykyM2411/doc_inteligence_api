@@ -28,6 +28,8 @@ Antes de abrir o editor, foi produzido o documento canônico [`docs/especificaca
 
 A implementação seguiu rigorosamente esse contrato: **todas as tabelas, campos, constraints, enums, índices parciais e a estrutura hexagonal foram implementados exatamente como especificados.** O histórico de commits do repositório reflete essa sequência — a especificação e o `AGENTS.md` (diretrizes de governança de IA) foram commitados antes de qualquer código de aplicação.
 
+As evoluções e melhorias introduzidas após os testes de estresse (como o *Circuit Breaker*, o *Fallback Cascade* e a serialização com *Alba*) foram registradas com total transparência no documento dedicado [`docs/divergencias_e_evolucoes_arquiteturais.md`](docs/divergencias_e_evolucoes_arquiteturais.md), preservando a especificação canônica intacta.
+
 ---
 
 ## 3. Principais Funcionalidades Implementadas
@@ -211,7 +213,8 @@ A suíte de testes automatizados priorizou cobrir de forma profunda e exaustiva 
 ## 8. Documentação da API e Governança de IA
 
 - **Swagger UI / OpenAPI 3.0:** Acesse `http://localhost:3000/api-docs` para explorar e testar todas as rotas da API interativamente.
-- **Especificação Canônica:** O projeto foi implementado com 100% de fidelidade ao documento [`docs/especificacao_e_arquitetura_doc_intelligence.md`](docs/especificacao_e_arquitetura_doc_intelligence.md).
+- **Especificação Canônica:** O projeto foi implementado com base na especificação inicial [`docs/especificacao_e_arquitetura_doc_intelligence.md`](docs/especificacao_e_arquitetura_doc_intelligence.md).
+- **Registro de Divergências:** Documentação detalhada das evoluções de engenharia pós-especificação em [`docs/divergencias_e_evolucoes_arquiteturais.md`](docs/divergencias_e_evolucoes_arquiteturais.md).
 - **Registro de Uso de IA (`docs/ai_log/`):**
   - [`AGENTS.md`](AGENTS.md): Diretrizes mandatórias de engenharia e regras de governança para agentes de IA.
   - [`docs/ai_log/prompts/`](docs/ai_log/prompts/): Histórico bruto, integral e sequencial dos prompts utilizados.
