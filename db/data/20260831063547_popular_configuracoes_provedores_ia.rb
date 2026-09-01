@@ -5,25 +5,25 @@ class PopularConfiguracoesProvedoresIa < ActiveRecord::Migration[8.1]
     {
       nome_provedor: "grok",
       nome_modelo: "grok-2-vision-1212",
-      credencial: ENV["XAI_API_KEY"] || "xai-RPQMM5i4coQfOdNxlRyWiPHXsC1ZAjHa9EfextbhWhVTITZi0J1E2VOCaxkrGLbqxCkf6Yi7JgEMYw0j",
-      ativo: true
+      credencial: nil,
+      ativo: false
     },
     {
       nome_provedor: "openai",
       nome_modelo: "gpt-4o-mini",
-      credencial: ENV["OPENAI_API_KEY"] || "sk-openai-placeholder-key",
+      credencial: nil,
       ativo: false
     },
     {
       nome_provedor: "gemini",
       nome_modelo: "gemini-1.5-flash",
-      credencial: ENV["GEMINI_API_KEY"] || "gemini-placeholder-key",
+      credencial: nil,
       ativo: false
     },
     {
       nome_provedor: "openrouter",
       nome_modelo: "meta-llama/llama-3.2-11b-vision-instruct",
-      credencial: ENV["OPENROUTER_API_KEY"] || "sk-or-placeholder-key",
+      credencial: nil,
       ativo: false
     },
     {

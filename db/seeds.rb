@@ -1,9 +1,40 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
+# frozen_string_literal: true
+
+# ==============================================================================
+# DOC Intelligence API — Seeds & Inicialização de Dados de Domínio
+# ==============================================================================
 #
-# Example:
+# A população de dados estruturais da aplicação (Estados, Cidades, Usuário Admin
+# inicial e Provedores de IA padrão) é gerenciada exclusivamente pela gem
+# `data_migrate` através de migrations de dados versionadas em `db/data/`.
 #
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+# Isso garante:
+# 1. Idempotência estrita entre ambientes (development, test, production);
+# 2. Rastreabilidade histórica de mutações de dados na esteira de deploy;
+# 3. Separação clara entre migrations de schema (DDL) e migrations de dados (DML).
+#
+# Para aplicar as migrações de dados, execute:
+#   $ bin/rails data:migrate
+# ==============================================================================
+
+puts ""
+puts "=== DOC Intelligence — Diagnóstico de Dados ==="
+
+estados_count = Estado.count rescue 0
+cidades_count = Cidade.count rescue 0
+usuarios_count = Usuario.count rescue 0
+provedores_count = ConfiguracaoProvedorIa.count rescue 0
+
+if estados_count.zero?
+  puts "⚠️  Base de dados ainda não foi populada com os dados de domínio."
+  puts "👉 Execute: bin/rails data:migrate"
+else
+  puts "✓ Estados carregados: #{estados_count}"
+  puts "✓ Cidades carregadas: #{cidades_count}"
+  puts "✓ Usuários cadastrados: #{usuarios_count}"
+  puts "✓ Provedores de IA configurados: #{provedores_count}"
+  puts "✓ Banco de dados pronto para operação!"
+end
+
+puts "================================================"
+puts ""
