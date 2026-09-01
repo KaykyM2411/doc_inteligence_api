@@ -49,6 +49,9 @@ gem "faraday"
 # Migrations de dados
 gem "data_migrate", "~> 11.3.1"
 
+# Serialização de JSON para APIs desacopladas
+gem "alba"
+
 # Variáveis de ambiente
 gem "dotenv-rails", groups: [ :development, :test ]
 

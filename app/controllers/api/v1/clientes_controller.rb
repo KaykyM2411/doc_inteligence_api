@@ -16,33 +16,13 @@ module Api
 
         render json: {
           total_count: result[:total_count],
-          data: result[:data].as_json(
-            include: {
-              enderecos: {
-                include: {
-                  cidade: {
-                    include: :estado
-                  }
-                }
-              }
-            }
-          )
+          data: ClienteSerializer.new(result[:data]).to_h
         }, status: :ok
       end
 
       # GET /api/v1/clientes/:id
       def show
-        render json: @cliente.as_json(
-          include: {
-            enderecos: {
-              include: {
-                cidade: {
-                  include: :estado
-                }
-              }
-            }
-          }
-        ), status: :ok
+        render json: ClienteSerializer.new(@cliente).serialize, status: :ok
       end
 
       # POST /api/v1/clientes
@@ -55,7 +35,7 @@ module Api
 
         cliente.save!
 
-        render json: cliente.as_json(include: :enderecos), status: :created
+        render json: ClienteSerializer.new(cliente).serialize, status: :created
       end
 
       # PATCH/PUT /api/v1/clientes/:id
@@ -67,7 +47,7 @@ module Api
           endereco.update!(endereco_params)
         end
 
-        render json: @cliente.as_json(include: :enderecos), status: :ok
+        render json: ClienteSerializer.new(@cliente).serialize, status: :ok
       end
 
       # DELETE /api/v1/clientes/:id
@@ -79,7 +59,7 @@ module Api
       # GET /api/v1/clientes/:id/documentos
       def documentos
         docs = @cliente.documentos.recentes
-        render json: docs.as_json, status: :ok
+        render json: DocumentoResumoSerializer.new(docs).serialize, status: :ok
       end
 
       # POST /api/v1/clientes/:id/documentos

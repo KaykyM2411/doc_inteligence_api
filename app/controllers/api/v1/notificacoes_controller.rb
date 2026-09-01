@@ -13,13 +13,13 @@ module Api
         render json: {
           total_count: result[:total_count],
           total_nao_lidas: Notificacao.nao_lidas.count,
-          data: result[:data]
+          data: NotificacaoSerializer.new(result[:data]).to_h
         }, status: :ok
       end
 
       # GET /api/v1/notificacoes/:id
       def show
-        render json: @notificacao, status: :ok
+        render json: NotificacaoSerializer.new(@notificacao).serialize, status: :ok
       end
 
       # PATCH /api/v1/notificacoes/:id/lida
@@ -27,7 +27,7 @@ module Api
         @notificacao.marcar_como_lida!
         render json: {
           mensagem: "Notificação marcada como lida com sucesso",
-          notificacao: @notificacao
+          notificacao: NotificacaoSerializer.new(@notificacao).to_h
         }, status: :ok
       end
 

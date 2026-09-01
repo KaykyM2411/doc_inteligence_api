@@ -9,24 +9,24 @@ module Api
         # GET /api/v1/configuracoes/smtp
         def index
           configs = ConfiguracaoSmtp.order(:nome)
-          render json: configs.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoSmtpSerializer.new(configs).serialize, status: :ok
         end
 
         # GET /api/v1/configuracoes/smtp/:id
         def show
-          render json: @config.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoSmtpSerializer.new(@config).serialize, status: :ok
         end
 
         # POST /api/v1/configuracoes/smtp
         def create
           config = ConfiguracaoSmtp.create!(smtp_params)
-          render json: config.as_json(except: :credencial_criptografada), status: :created
+          render json: ConfiguracaoSmtpSerializer.new(config).serialize, status: :created
         end
 
         # PATCH/PUT /api/v1/configuracoes/smtp/:id
         def update
           @config.update!(smtp_params)
-          render json: @config.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoSmtpSerializer.new(@config).serialize, status: :ok
         end
 
         # DELETE /api/v1/configuracoes/smtp/:id

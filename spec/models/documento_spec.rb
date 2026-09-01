@@ -87,7 +87,7 @@ RSpec.describe Documento, type: :model do
     end
 
     it "defines correct origem enum values" do
-      expect(Documento.origens.keys).to contain_exactly("manual", "whatsapp", "email")
+      expect(Documento.defined_enums["origem"].keys).to contain_exactly("manual", "whatsapp", "email")
     end
   end
 

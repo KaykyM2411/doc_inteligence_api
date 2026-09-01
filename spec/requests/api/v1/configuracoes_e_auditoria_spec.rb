@@ -17,6 +17,7 @@ RSpec.describe "Api::V1::Configuracoes & Auditoria", type: :request do
       c.nome_modelo = "grok-2-vision-1212"
       c.credencial_criptografada = "key_grok"
       c.ativo = true
+      c.ordem = 1
     end
   end
 
@@ -57,13 +58,14 @@ RSpec.describe "Api::V1::Configuracoes & Auditoria", type: :request do
   end
 
   describe "POST /api/v1/configuracoes/provedores_ia/:id/ativar" do
-    it "activates the selected AI provider and deactivates others" do
-      post "/api/v1/configuracoes/provedores_ia/#{provedor_openai.id}/ativar", headers: auth_headers
+    it "activates the selected AI provider with order" do
+      post "/api/v1/configuracoes/provedores_ia/#{provedor_openai.id}/ativar",
+           params: { ordem: 2 },
+           headers: auth_headers
 
       expect(response).to have_http_status(:ok)
-
       expect(provedor_openai.reload.ativo).to be true
-      expect(provedor_grok.reload.ativo).to be false
+      expect(provedor_openai.ordem).to eq(2)
     end
   end
 

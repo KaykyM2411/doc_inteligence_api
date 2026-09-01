@@ -8,32 +8,30 @@ module Api
 
         # GET /api/v1/configuracoes/provedores_ia
         def index
-          provedores = ConfiguracaoProvedorIa.order(:nome_provedor)
-          render json: provedores.as_json(except: :credencial_criptografada), status: :ok
+          provedores = ConfiguracaoProvedorIa.order(ativo: :desc, ordem: :asc)
+          render json: ConfiguracaoProvedorIaSerializer.new(provedores).serialize, status: :ok
         end
 
         # GET /api/v1/configuracoes/provedores_ia/:id
         def show
-          render json: @provedor.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoProvedorIaSerializer.new(@provedor).serialize, status: :ok
         end
 
         # PATCH/PUT /api/v1/configuracoes/provedores_ia/:id
         def update
           @provedor.update!(provedor_params)
-          render json: @provedor.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoProvedorIaSerializer.new(@provedor).serialize, status: :ok
         end
 
         # POST /api/v1/configuracoes/provedores_ia/:id/ativar
-        # Garante que apenas um provedor de IA esteja ativo simultaneamente
+        # Ativa o provedor de IA com ordem de prioridade na cascata de fallback
         def ativar
-          ConfiguracaoProvedorIa.transaction do
-            ConfiguracaoProvedorIa.where.not(id: @provedor.id).update_all(ativo: false)
-            @provedor.update!(ativo: true)
-          end
+          nova_ordem = params[:ordem].presence || @provedor.ordem || (ConfiguracaoProvedorIa.ativos.maximum(:ordem).to_i + 1)
+          @provedor.update!(ativo: true, ordem: nova_ordem)
 
           render json: {
-            mensagem: "Provedor #{@provedor.nome_provedor} ativado com sucesso",
-            provedor: @provedor.as_json(except: :credencial_criptografada)
+            mensagem: "Provedor #{@provedor.nome_provedor} ativado com sucesso na ordem #{nova_ordem}",
+            provedor: ConfiguracaoProvedorIaSerializer.new(@provedor).to_h
           }, status: :ok
         end
 
@@ -45,7 +43,7 @@ module Api
 
         def provedor_params
           source = params[:provedor_ia] || params[:configuracao_provedor_ia] || params
-          source.permit(:nome_modelo, :credencial_criptografada, :ativo)
+          source.permit(:nome_modelo, :credencial_criptografada, :ativo, :ordem)
         end
       end
     end

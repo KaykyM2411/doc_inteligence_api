@@ -37,7 +37,7 @@ module Api
 
           render json: {
             resumo: resumo,
-            historicos: ultimos_historicos.as_json(include: { documento: { only: [ :id, :nome_arquivo, :tipo, :status ] } })
+            historicos: HistoricoExtracaoSerializer.new(ultimos_historicos).to_h
           }, status: :ok
         end
       end

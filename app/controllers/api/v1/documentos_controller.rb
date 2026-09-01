@@ -16,19 +16,13 @@ module Api
 
         render json: {
           total_count: result[:total_count],
-          data: result[:data].as_json(
-            include: [ :cliente, :revisado_por ],
-            methods: :arquivo_url
-          )
+          data: DocumentoSerializer.new(result[:data]).to_h
         }, status: :ok
       end
 
       # GET /api/v1/documentos/:id
       def show
-        render json: @documento.as_json(
-          include: [ :cliente, :revisado_por, :historicos_extracao ],
-          methods: :arquivo_url
-        ), status: :ok
+        render json: DocumentoSerializer.new(@documento).serialize, status: :ok
       end
 
       # POST /api/v1/documentos
@@ -51,7 +45,7 @@ module Api
         render json: {
           mensagem: resultado.mensagem,
           duplicado: resultado.duplicado,
-          documento: resultado.documento.as_json(methods: :arquivo_url)
+          documento: DocumentoSerializer.new(resultado.documento).to_h
         }, status: (resultado.duplicado ? :ok : :created)
       rescue Documentos::IngestaoService::ErroArquivoInvalido => e
         render json: { error: e.message }, status: :unprocessable_entity
@@ -68,10 +62,7 @@ module Api
 
         render json: {
           total_count: result[:total_count],
-          data: result[:data].as_json(
-            include: [ :cliente, :revisado_por ],
-            methods: :arquivo_url
-          )
+          data: DocumentoSerializer.new(result[:data]).to_h
         }, status: :ok
       end
 
@@ -97,7 +88,7 @@ module Api
 
         render json: {
           mensagem: "Documento conferido e aprovado com sucesso",
-          documento: @documento.as_json(include: [ :cliente, :revisado_por ], methods: :arquivo_url)
+          documento: DocumentoSerializer.new(@documento).to_h
         }, status: :ok
       end
 

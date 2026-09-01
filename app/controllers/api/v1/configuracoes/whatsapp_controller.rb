@@ -9,24 +9,24 @@ module Api
         # GET /api/v1/configuracoes/whatsapp
         def index
           configs = ConfiguracaoWhatsapp.order(:nome)
-          render json: configs.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoWhatsappSerializer.new(configs).serialize, status: :ok
         end
 
         # GET /api/v1/configuracoes/whatsapp/:id
         def show
-          render json: @config.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoWhatsappSerializer.new(@config).serialize, status: :ok
         end
 
         # POST /api/v1/configuracoes/whatsapp
         def create
           config = ConfiguracaoWhatsapp.create!(whatsapp_params)
-          render json: config.as_json(except: :credencial_criptografada), status: :created
+          render json: ConfiguracaoWhatsappSerializer.new(config).serialize, status: :created
         end
 
         # PATCH/PUT /api/v1/configuracoes/whatsapp/:id
         def update
           @config.update!(whatsapp_params)
-          render json: @config.as_json(except: :credencial_criptografada), status: :ok
+          render json: ConfiguracaoWhatsappSerializer.new(@config).serialize, status: :ok
         end
 
         # DELETE /api/v1/configuracoes/whatsapp/:id
