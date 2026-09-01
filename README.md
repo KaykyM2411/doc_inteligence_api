@@ -204,7 +204,9 @@ A suíte de testes automatizados priorizou cobrir de forma profunda e exaustiva 
 1. **Pipeline de Ingestão e Deduplicação (Fato c):** Testes comprovando que reenvios do mesmo arquivo por um cliente são interceptados por hash SHA-256 sem duplicação no banco, e que eventos repetidos de webhook são descartados de imediato por Early Idempotency.
 2. **Webhooks e Sanitização de Magic Bytes (Fato b):** Testes com payloads reais de WhatsApp e E-mail, além de rejeição de arquivos executáveis corrompidos ou maliciosos.
 3. **Resiliência e Circuit Breaker (Fatos a e e):** Testes unitários cobrindo os 3 estados do disjuntor (`closed`, `open`, `half_open`) e a cascata de fallback automático entre provedores de IA.
-4. **Concorrência Otimista na Fila de Conferência (Fato g):** Simulação de dois atendentes tentando salvar o mesmo documento simultaneamente, atestando o retorno de `HTTP 409 Conflict` via `lock_version`.
+4. **Concorrência Real e Multithreading na Fila de Conferência (Fatos c e g - [`spec/requests/api/v1/concorrencia_real_spec.rb`](spec/requests/api/v1/concorrencia_real_spec.rb)):**
+   - Teste de integração disparando requisições concorrentes e **threads paralelas reais no PostgreSQL** para simular múltiplos operadores salvando o mesmo documento simultaneamente (`lock_version` gerando `ActiveRecord::StaleObjectError` e resposta `HTTP 409 Conflict`).
+   - Teste de ingestão simultânea com o mesmo hash provando a integridade da constraint de deduplicação sem duplicação no banco.
 5. **Ports & Adapters de IA e Precificação Dinâmica (Fato f):** Testes de fallback gracioso para o `MockAdapter`, isolamento de chamadas HTTP via WebMock e cálculo dinâmico de custos de tokens.
 6. **Autenticação JWT e WebSockets:** Testes de ciclo de vida de tokens (login, me, logout com revogação) e conexão autenticada ao ActionCable.
 
