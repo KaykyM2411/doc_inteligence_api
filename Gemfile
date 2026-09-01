@@ -69,7 +69,7 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
 
   # RSpec e ferramentas de teste automatizado
-  gem "rspec-rails", "~> 7.0"
+  gem "rspec-rails", "~> 8.0"
   gem "faker"
   gem "webmock"
 end
