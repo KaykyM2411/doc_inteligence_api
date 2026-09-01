@@ -34,9 +34,9 @@ As evoluções e melhorias introduzidas após os testes de estresse (como o *Cir
 
 ## 3. Principais Funcionalidades Implementadas
 
-### 3.1 Multi-Provedores de IA Multimodal (Testados com APIs Reais)
-- **Desacoplamento de Provedores:** Suporte integrado a **Grok (xAI Vision)**, **OpenAI (GPT-4o)**, **Google Gemini Multimodal**, **OpenRouter**, **Ollama** e **Mock**.
-- **Chaves Reais Testadas:** A integração foi testada e homologada consumindo APIs oficiais reais (Gemini e OpenRouter), validando latência, qualidade da extração JSON e respostas multimodais de alta resolução.
+### 3.1 Multi-Provedores de IA Multimodal (Gemini e OpenRouter Homologados com Chaves Reais)
+- **Desacoplamento de Provedores:** Suporte integrado a **Grok (xAI Vision)**, **OpenAI (GPT-4o)**, **Google Gemini Multimodal**, **OpenRouter**, **Ollama (IA Local)** e **Mock**.
+- **Homologação com APIs Oficiais:** Os adaptadores de **Gemini** e **OpenRouter** foram homologados e testados consumindo diretamente suas APIs oficiais com chaves reais, validando latência, qualidade da extração JSON e respostas multimodais. Os demais adaptadores contam com cobertura de testes unitários isolados via WebMock e mocks fiéis aos contratos.
 - **Consulta Dinâmica de Preços (Domain Pricing):** O custo financeiro de cada requisição em USD não é *hardcoded*; o sistema consulta dinamicamente a tabela de preços via endpoints oficiais dos provedores (ex: xAI e OpenRouter) e audita o custo exato por documento.
 
 ### 3.2 Resiliência Corporativa: Fallback Cascade & Circuit Breaker (Fatos a e e)
@@ -113,8 +113,8 @@ Os dados extraídos em JSONB são validados e sanitizados por classes PORO (`Act
 - `EsquemaBase`: Utilitários reutilizáveis de sanitização de CPF, telefones com regex canônica e parsing financeiro.
 - `FactoryEsquemas`: Resolução dinâmica por tipo de documento e versão do schema.
 
-### 4.4 Destaque da Stack: Gem `huginn_datatable` (Autoria Própria)
-Para resolver a paginação performática, ordenação multicamadas, mapeamento de aliases públicos e filtros dinâmicos de dados em tabelas relacionais complexas (Clientes, Documentos, Estados, Cidades e Auditoria), o projeto utiliza a gem **[`huginn_datatable`](https://rubygems.org/gems/huginn_datatable)** (`require "huginn"`), desenvolvida pelo próprio candidato e publicada no RubyGems.
+### 4.4 Paginação e Consultas Dinâmicas (`huginn_datatable`)
+Para a listagem paginada, ordenação multicamadas e filtros dinâmicos de dados em tabelas relacionais com aliases públicos (Clientes, Documentos, Estados, Cidades e Auditoria), a API utiliza a gem **[`huginn_datatable`](https://rubygems.org/gems/huginn_datatable)** (`require "huginn"`), desenvolvida pelo autor e publicada no RubyGems.
 
 ---
 
